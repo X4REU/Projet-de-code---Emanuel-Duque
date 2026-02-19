@@ -27,17 +27,17 @@ workbook password : admin (pour afficher le ruban)
 
 ---Scénarios---
 
-Cette séction tend à présenter les différents indicateurs utilisé dans le logiciel. 
+Cette section tend à présenter les différents indicateurs utilisés dans le logiciel. 
 Les seuils sont variables et peuvent être fixés par l'utilisateur, le tout en fonction de la catégorisation du client : Retail ou Institutionnel.
 
 🏢 Scénarios d’Alerte – Clients Institutionnels et Clients Retail :
 
 1. Accumulation de volume → Détection de volumes anormalement élevés
 
-✅ Transactions journalières dépassant un seuil prédéfini, exprimé en pourcentage du volumes quotidiens. 
+✅ Transactions journalières dépassant un seuil prédéfini, exprimé en pourcentage du volume quotidien. 
 
 ✅ Achats cumulés sur X jours excédant un seuil défini, basé sur les volumes échangés sur la même période. 
+
 2. Plus-value importante → Détection de gains potentiellement suspects
 
-✅ Transaction générant une performance journalière supérieure à la volatilité constatée sur les X jours suivants,
-ajustée selon la nature de l'opération (achat ou vente).
+✅ Transaction générant une performance journalière supérieure à la volatilité constatée sur les X jours suivants,ajustée selon la nature de l'opération (achat ou vente).
