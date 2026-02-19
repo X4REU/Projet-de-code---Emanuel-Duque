@@ -1,3 +1,5 @@
+---PRÉSENTATION---
+
 ---A SAVOIR---
 
 Cette section présente l'utilité des différents dossiers présents dans le package.
@@ -17,7 +19,7 @@ Ces deux fichiers sont liés aux fonctions du bouton "Analyzer" du fichier Excel
 Dans le dossier "data_output",vous retrouverez le détail des datas qui ont servi à mener l'analyse des transactions du client. 
 Dans le dossier "reporting_1_doc_package", vous retrouverez le formulaire de déclaration d'opérations suspectes, complété et prêt à être envoyé. 
 
----Admin Info---
+---ADMIN INFO---
 
 Pour accéder au fichier sans avoir à créer de User, vous pouvez utiliser l'identifiant suivant : 
 
@@ -25,7 +27,7 @@ Mail : admin
 Password : admin
 workbook password : admin (pour afficher le ruban)
 
----Scénarios---
+---SCÉNARIOS---
 
 Cette section tend à présenter les différents indicateurs utilisés dans le logiciel. 
 Les seuils sont variables et peuvent être fixés par l'utilisateur, le tout en fonction de la catégorisation du client : Retail ou Institutionnel.
