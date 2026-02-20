@@ -1,4 +1,4 @@
-# Pricing options USA:EU
+# Pricing options
 
 Guide complet du projet de pricing d'options (EU vs US), génération de graphiques et export PDF.
 
@@ -179,21 +179,3 @@ Le PDF est structuré en deux pages:
 - Date de génération
 - Nom du rapport + pagination
 
----
-
-## Limites actuelles
-
-- Pas de PDF en mode `comparaison`
-- `yfinance` peut renvoyer des données incomplètes selon ticker/marché
-- Greeks américains approchés numériquement (pas formule fermée)
-- Paramètres d'approximation fixes (`N=200`, pas de calibration auto)
-
----
-
-## Pistes d'amélioration
-
-1. Ajouter un `requirements.txt` ou `pyproject.toml`
-2. Ajouter des tests unitaires (pricing + greeks + stabilité numérique)
-3. Permettre l'export PDF en mode `comparaison`
-4. Exposer `N` (binomial) et pas de différences finies en paramètres CLI
-5. Ajouter validation métier (ex: borne max sur `T`, checks sur `sigma`)
