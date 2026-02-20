@@ -1,4 +1,4 @@
-# Pricing Options
+# Code Guide : Pricing Options
 
 Complete guide to the European and American option pricing project.
 
