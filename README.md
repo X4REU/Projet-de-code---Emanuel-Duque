@@ -1,3 +1,11 @@
+# Code Guide: Earnings Volatility Backtest
+
+Complete walkthrough of the three scripts that power the backtest, charts, and PDF report.
+
+---
+
+## Pipeline Overview
+
 Bienvenue sur mon répertoire GitHub
 
 Ce répertoire regroupe l’ensemble des projets de code que j’ai créés, aussi bien en Python qu’en VBA.
