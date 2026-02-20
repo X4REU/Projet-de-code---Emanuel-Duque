@@ -1,22 +1,37 @@
-# Code Guide: Earnings Volatility Backtest
 
-Complete walkthrough of the three scripts that power the backtest, charts, and PDF report.
+# Welcome to My GitHub Repository
+
+This repository centralizes the coding projects I have developed in both Python and VBA.
+
+Each folder corresponds to a distinct project and has been structured to ensure clarity, readability, and logical organization. Projects may differ in scope, complexity, and application, but each reflects personal design, development, and implementation work.
 
 ---
 
-## Pipeline Overview
+## Repository Structure
 
-Bienvenue sur mon répertoire GitHub
+Each project directory typically includes:
 
-Ce répertoire regroupe l’ensemble des projets de code que j’ai créés, aussi bien en Python qu’en VBA.
+- Source code and technical modules  
+- Associated documentation  
+- Supporting files necessary for understanding and reproducing the work  
 
-Chaque dossier correspond à un projet distinct et a été structuré de manière à offrir une lecture claire et organisée. Les projets peuvent varier en termes d’objectifs, de complexité ou d’application, mais chacun reflète un travail personnel de conception et d’implémentation.
+---
 
-L’objectif de ce répertoire est de centraliser mes différents travaux afin d’en offrir une vision claire et structurée. 
+## Objective
 
-Vous y retrouverez :
-Le code source et les modules techniques,
-La documentation associée,
-Les fichiers et supports complémentaires nécessaires à la compréhension des projets.
+The purpose of this repository is to consolidate my technical work into a structured and accessible portfolio, providing a clear overview of my development experience and project architecture.
 
-Bonne exploration.
+---
+
+## Projects Overview
+
+Each project is self-contained and organized to facilitate:
+
+- Code readability  
+- Logical structure  
+- Ease of navigation  
+- Reproducibility  
+
+---
+
+Thank you for visiting.
