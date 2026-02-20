@@ -99,241 +99,268 @@ To access the file without creating a new user account, you can use the followin
 
 This section outlines the main indicators implemented in the software.
 
-Thresholds are configurable and can be adjusted by the user depending on the client classification:
+Thresholds are **configurable** and can be adjusted by the user depending on the client classification:
 
 - **Retail**
 - **Institutional**
-Les seuils sont **variables** et peuvent être fixés par l’utilisateur, en fonction de la catégorisation du client :
 
-- **Retail**
-- **Institutionnel**
+## Alert Scenarios – Institutional and Retail Clients
 
-## Scénarios d’Alerte – Clients Institutionnels et Clients Retail
+### 1) Volume Accumulation → Detection of Abnormally High Trading Volumes
 
-### 1) Accumulation de volume → Détection de volumes anormalement élevés
+- **Daily transactions** exceeding a predefined threshold, expressed as a percentage of total daily market volume
+- **Cumulative purchases over X days** exceeding a defined threshold, based on total traded volume over the same period
 
-- **Transactions journalières** dépassant un seuil prédéfini, exprimé en **% du volume quotidien marché**
-- **Achats cumulés sur X jours** excédant un seuil défini, basé sur les volumes échangés sur la même période
+**Code implementation:**
+- `DailyVolumeTracker` (daily control)
+- `CumulatedVolumeTracker` (rolling / cumulative control)
 
-**Implémentation côté code :**
-- `DailyVolumeTracker` (journalier)
-- `CumulatedVolumeTracker` (rolling / cumulé)
-
-Seuils et fenêtres pilotés par `IndicatorsConfig`.
-
-### 2) Plus-value importante → Détection de gains potentiellement suspects
-
-- Transaction générant une **performance journalière** supérieure à la **volatilité observée** sur les **X jours suivants**, ajustée selon la nature de l’opération (**achat** ou **vente**)
-
-**Implémentation côté code :**
-- `ProfitTracker` (calcul rendement client vs rendement/volatilité asset, rolling window + alert)
+Thresholds and rolling windows are driven by the `IndicatorsConfig` sheet.
 
 ---
 
-# Script 1 : `Loaders.bas` (Données Marché)
+### 2) Significant Capital Gain → Detection of Potentially Suspicious Profits
 
-## Rôle principal
+- A transaction generating a **daily performance** exceeding the **observed volatility** over the following X days, adjusted depending on the transaction type (**buy** or **sell**)
 
-`ImportOrRefreshAPIData(symbole)` gère le cycle de vie complet d’un ticker :
+**Code implementation:**
+- `ProfitTracker` (client return vs asset return/volatility comparison, rolling window + alert logic)
 
-- premier import si le fichier n’existe pas
-- import temporaire pour refresh si fichier existant
-- fusion des nouvelles lignes uniquement
-- déduplication + tri
-- sauvegarde de la dernière date importée dans `HiddenSettings`
+---
 
-## Fonctions clés
+# Script 1: `Loaders.bas` (Market Data)
 
-### `APILoader(symbole, temp)`
+## Main Role
 
-- construit l’URL `TIME_SERIES_DAILY` (format CSV)
-- appelle l’API via `MSXML2.XMLHTTP`
-- écrit la réponse dans un nouveau workbook
-- sauvegarde vers :
-  - `data/{symbole}.xlsx`
-  - `data/__{symbole}.xlsx` (temp)
+`ImportOrRefreshAPIData(symbol)` manages the full lifecycle of a ticker:
+
+- first import if the file does not exist
+- temporary refresh import if the file exists
+- merge of new rows only
+- deduplication and sorting
+- persistence of the last imported date in `HiddenSettings`
+
+## Key Functions
+
+### `APILoader(symbol, temp)`
+
+- builds the `TIME_SERIES_DAILY` URL (CSV format)
+- calls the API using `MSXML2.XMLHTTP`
+- writes the response into a new workbook
+- saves to:
+  - `data/{symbol}.xlsx`
+  - `data/__{symbol}.xlsx` (temporary file)
 
 ### `CounterAPI(main_path)`
 
-- met à jour le compteur journalier d’appels API dans `data/symbol_list_avapi/config.xlsx`
+- updates the daily API call counter in `data/symbol_list_avapi/config.xlsx`
   - `B2` = date
-  - `B3` = compteur
+  - `B3` = counter
 
 ### `GetAllSymbolList(...)`
 
-- lit `symbol_list.csv` (univers disponible)
+- reads `symbol_list.csv` (available universe)
 
 ### `GetAllTickers()`
 
-- lit les tickers importés depuis `HiddenSettings`
+- reads imported tickers from `HiddenSettings`
 
 ---
 
-# Script 2 : Gestion Clients & Transactions
+# Script 2: Client & Transaction Management
 
 ## `ClientManager.bas`
 
-### Responsabilités principales
+### Main Responsibilities
 
-- `CreateID(...)` : génère un ID client unique (code type + encodage nom/prénom)
-- `CheckID(...)` : détecte les doublons dans `Transactions!N`
-- `AddNewClient(...)` : ajoute les données client en `Transactions!N:Q`
-- `GetClientID(...)`, `FilterLastNames(...)`, `FilterNames(...)` : support filtrage GUI
+- `CreateID(...)`: generates a unique client ID (type code + encoded names)
+- `CheckID(...)`: detects duplicates in `Transactions!N`
+- `AddNewClient(...)`: appends client data in `Transactions!N:Q`
+- `GetClientID(...)`, `FilterLastNames(...)`, `FilterNames(...)`: support dynamic GUI filtering
+
+---
 
 ## `Add Trade.bas`
 
 ### `CheckTrade(...)`
 
-- ouvre `data/{symbol}.xlsx`
-- vérifie que la date existe dans les données marché
-- vérifie que le prix est compris entre le low/high du jour
-- vérifie que la quantité est cohérente avec le volume journalier
-- si valide → appelle `AddTrade(...)`
+- opens `data/{symbol}.xlsx`
+- verifies that the trade date exists in market data
+- verifies that the trade price lies within the day's low/high range
+- verifies that the quantity is consistent with daily market volume
+- if valid → calls `AddTrade(...)`
 
 ### `AddTrade(...)`
 
-Écrit en `Transactions!B:L` :
+Writes to `Transactions!B:L`:
 
-- ID client, identité, type client
+- client ID, identity, client type
 - asset, date, side
-- prix moyen, quantité
-- valeur brute / nette
+- average price, quantity
+- gross and net values
 
-Applique un formatage visuel différent pour Buy / Sell.
+Applies distinct visual formatting for Buy and Sell transactions.
 
 ---
 
-# Script 3 : `AnalyzerAndTrackers.bas` (Moteur Analytique)
+# Script 3: `AnalyzerAndTrackers.bas` (Analytics Engine)
 
-## Processus principal
+## Main Process
 
 ### `MainProcess(client_id, asset, client_type, surname, name)`
 
-1. extrait toutes les transactions du client pour l’asset sélectionné
-2. ouvre `data/{asset}.xlsx`
-3. calcule les indicateurs :
+1. extracts all client trades for the selected asset
+2. opens `data/{asset}.xlsx`
+3. computes indicators:
    - `DailyVolumeTracker`
    - `CumulatedVolumeTracker`
    - `ProfitTracker`
-4. calcule le score global (`GlobalScore`)
-5. écrit les résultats dans `DashBoard`
-6. sauvegarde le workbook analysé dans `reporting/data_output/data_{id}_...xlsx`
-
-## Indicateurs
-
-### `DailyVolumeTracker`
-
-- agrège la quantité traitée par date
-- compare au volume marché journalier
-- seuils (`IndicatorsConfig`) :
-  - `C3` (Retail)
-  - `E3` (Institutionnel)
-- retourne `OK` / `ALERT`
-
-### `CumulatedVolumeTracker`
-
-- comparaison rolling volume cumulé client vs volume marché rolling
-- seuils :
-  - Retail → `B4:C4`
-  - Institutionnel → `D4:E4`
-- retourne `OK` / `ALERT`
-
-### `ProfitTracker`
-
-- agrégation trades par date (qty nette, prix moyen)
-- calcule rendement journalier & cumulatif client
-- calcule rendement asset + volatilité
-- détecte fenêtres anormales via rolling :
-  - Retail → `B5`
-  - Institutionnel → `D5`
-
-### `GlobalScore`
-
-3 alertes binaires converties en score sur 100 : `0`, `33.3`, `66.7`, `100`
-
-## Écriture Dashboard
-
-### `ShowResult(...)`
-
-Ajoute une ligne dans `DashBoard` avec :
-
-- métadonnées (date, asset, client)
-- exposition
-- score + statuts indicateurs
-- performance portefeuille
-- nombre de Buy/Sell
+4. computes the global score (`GlobalScore`)
+5. writes results to `DashBoard`
+6. saves the analyzed workbook to `reporting/data_output/data_{id}_...xlsx`
 
 ---
 
-# Script 4 : `WordReporting.bas` (Reporting Word + PDF)
+## Indicators
 
-## Rôle
+### `DailyVolumeTracker`
+
+- aggregates traded quantity by date
+- compares it with daily market volume
+- thresholds (`IndicatorsConfig`):
+  - `C3` (Retail)
+  - `E3` (Institutional)
+- returns `OK` / `ALERT`
+
+---
+
+### `CumulatedVolumeTracker`
+
+- rolling comparison of cumulative client volume vs rolling market volume
+- thresholds:
+  - Retail → `B4:C4`
+  - Institutional → `D4:E4`
+- returns `OK` / `ALERT`
+
+---
+
+### `ProfitTracker`
+
+- aggregates trades by date (net quantity, average price)
+- computes daily and cumulative client returns
+- computes asset return and volatility
+- flags abnormal performance windows using rolling parameters:
+  - Retail → `B5`
+  - Institutional → `D5`
+
+---
+
+### `GlobalScore`
+
+Three binary alerts mapped to a score out of 100:
+
+- `0`
+- `33.3`
+- `66.7`
+- `100`
+
+---
+
+## Dashboard Writeback
+
+### `ShowResult(...)`
+
+Appends one analysis row in `DashBoard` with:
+
+- metadata (date, asset, client)
+- exposure
+- score and indicator statuses
+- portfolio performance
+- number of Buy/Sell transactions
+
+---
+
+# Script 4: `WordReporting.bas` (Word + PDF Reporting)
+
+## Role
 
 ### `WordMainProcess(id, export_path)`
 
-- ouvre le template `utils/template/reporting_template.docx`
-- charge la ligne d’analyse depuis `DashBoard`
-- charge les seuils depuis `IndicatorsConfig`
-- remplace les tags section par section
-- exporte le dossier de reporting pour l’ID sélectionné
+- opens the template `utils/template/reporting_template.docx`
+- loads the analysis row from `DashBoard`
+- loads thresholds from `IndicatorsConfig`
+- replaces template tags section by section
+- exports the reporting folder for the selected ID
 
-## Artefacts générés
+---
+
+## Generated Artifacts
 
 ### `SaveDocFile(...)`
 
-Crée :
+Creates:
 
 ```text
 reporting_{id}_doc_package/
 ├── reporting_{id}_document.pdf
 ├── raw_{id}reporting_doc.docx
-└── copie data_{id}_*.xlsx
+└── copy of data_{id}_*.xlsx
 ```
 
 ---
 
-# Workflow des UserForms
+# UserForms Workflow
 
 ## `UserLogin.frm` / `UserRegister.frm`
 
-- authentification via feuille `User`
-- injecte contexte utilisateur dans `DashBoard!T4:T7`
-- gestion optionnelle visibilité ruban (admin)
-
-## `dataGui.frm`
-
-- ajout nouveau ticker vs mise à jour existant
-- liste issue du CSV + tickers importés
-- déclenche `ImportOrRefreshAPIData`
-
-## `managerGui.frm`
-
-- Onglet 1 : création client (validation + génération ID)
-- Onglet 2 : ajout transaction (validation + contrôles date/prix/quantité)
-
-## `AnalyzerGui.frm`
-
-- Onglet 1 : analyse client/asset (`MainProcess`)
-- Onglet 2 : export package (`WordMainProcess`)
+- authentication via `User` sheet
+- pushes active user context into `DashBoard!T4:T7`
+- optional ribbon visibility management (admin check)
 
 ---
 
-# Modifications & Personnalisation
+## `dataGui.frm`
 
-## Modifier les seuils d’indicateurs
+- add new ticker vs update existing ticker
+- ticker list populated from CSV/imported list
+- triggers `ImportOrRefreshAPIData`
 
-Feuille `IndicatorsConfig` :
+---
 
-- Daily volume → `C3` (Retail), `E3` (Institutionnel)
-- Cumulated volume → `B4:C4` (Retail), `D4:E4` (Institutionnel)
-- Profit rolling window → `B5` (Retail), `D5` (Institutionnel)
+## `managerGui.frm`
 
-## Ajouter de nouveaux assets
+- Tab 1: create client (validation + ID generation)
+- Tab 2: add trade (field validation + date/price/quantity checks)
 
-1. Mettre à jour `data/symbol_list_avapi/symbol_list.csv`
-2. Lancer l’import via `dataGui`
+---
 
-## Personnaliser le reporting
+## `AnalyzerGui.frm`
 
-- modifier `FillSection*` dans `WordReporting.bas`
-- modifier les tags dans `reporting_template.docx`
+- Tab 1: analyze selected client/asset (`MainProcess`)
+- Tab 2: export reporting package (`WordMainProcess`)
+
+---
+
+# Modifications & Customization
+
+## Modify Indicator Thresholds
+
+Edit `IndicatorsConfig` sheet:
+
+- Daily volume → `C3` (Retail), `E3` (Institutional)
+- Cumulated volume → `B4:C4` (Retail), `D4:E4` (Institutional)
+- Profit rolling window → `B5` (Retail), `D5` (Institutional)
+
+---
+
+## Add New Assets to the Universe
+
+1. Update `data/symbol_list_avapi/symbol_list.csv`
+2. Run the import via `dataGui`
+
+---
+
+## Customize the Reporting
+
+- Modify `FillSection*` procedures in `WordReporting.bas`
+- Adjust tags in `reporting_template.docx`
