@@ -1,6 +1,6 @@
 # Pricing options
 
-Guide complet du projet de pricing d'options (EU vs US), génération de graphiques et export PDF.
+Guide complet du projet de pricing d'options européennes et américaines.
 
 ---
 
