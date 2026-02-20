@@ -120,11 +120,6 @@ Generated in memory (PNG via `BytesIO`):
 - Theta
 - Rho
 
-Notes:
-
-- In `comparison` mode, EU and US curves are plotted together for each Greek.
-- Chart images are passed directly to `report.py` (no intermediate files).
-
 ---
 
 ### 6) PDF Export (`export_pdf` in `report.py`)
