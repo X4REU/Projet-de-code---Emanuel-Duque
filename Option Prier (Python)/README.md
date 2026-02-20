@@ -1,155 +1,223 @@
-# Code Guide : Pricing Options
+# Pricing options USA:EU
 
-Complete guide to the European and American option pricing project.
+Guide complet du projet de pricing d'options (EU vs US), génération de graphiques et export PDF.
 
 ---
 
-## Overview
+## Vue d'ensemble
 
 ```text
-Step 1: main.py   -> retrieves market data, prices the option, computes Greeks
-Step 2: main.py   -> generates charts (payoff + Greeks curves)
-Step 3: report.py -> exports a professional PDF (except comparison mode)
+Étape 1: main.py   -> récupère les données marché, valorise l'option, calcule les Greeks
+Étape 2: main.py   -> génère les graphiques (payoff + courbes de Greeks)
+Étape 3: report.py -> exporte un PDF professionnel (sauf mode comparaison)
 ```
 
-The program is interactive (CLI): you enter the parameters, it performs all calculations and generates the report.
+Le programme est interactif (CLI): vous entrez les paramètres, il calcule tout et génère le rapport.
 
 ---
 
-## Project Structure
+## Data Flow Diagram
 
-| File | Role | Output |
-|------|------|--------|
-| `main.py` | Main pipeline: input, market data, pricing, Greeks, charts | Console output + in-memory images + export call |
-| `report.py` | PDF layout (header/footer, KPIs, payoff, Greeks) | `report/{ticker}_{style}_{type}_{position}.pdf` |
-| `report/` | Generated reports folder | Final PDFs |
+```text
+Utilisateur (CLI) ────────────────────────────────────────────────┐
+                                                                  │
+                                                                  ▼
+                                                             main.py
+                                                                  │
+                         ┌────────────────────────────────────────┼────────────────────────────────────────┐
+                         ▼                                        ▼                                        ▼
+            get_market_data(ticker)                    Inputs utilisateur                       Choix du style
+                         │                                        │                             (europeenne /
+           ┌─────────────┼─────────────┐                         │                             americaine /
+           ▼             ▼             ▼                         │                              comparaison)
+   Yahoo Finance     Yahoo Finance    Yahoo Finance              │
+     (ticker)           (^IRX)          (.info)                  │
+       │                 │                │                      │
+       ▼                 ▼                ▼                      ▼
+   prix spot S       taux r         dividende q           K, T, call/put, long/short
+                         │
+                         ▼
+                 volatilité sigma
+                (log-returns annualisés)
+                                                                  │
+                                                                  ▼
+                                                     pricing + Greeks
+                                          (EU: Black-Scholes, US: binomial)
+                                                                  │
+                                  ┌───────────────────────────────┼───────────────────────────────┐
+                                  ▼                               ▼                               ▼
+                           prix_eu + greeks_eu              prix_am + greeks_am             generate_charts()
+                                                                                            (Payoff + Delta/Gamma/
+                                                                                             Vega/Theta/Rho en PNG mémoire)
+                                  │                               │                               │
+                                  └───────────────┬───────────────┴───────────────┬───────────────┘
+                                                  ▼                               ▼
+                                           mode comparaison                  mode europeenne/americaine
+                                                  │                               │
+                                                  ▼                               ▼
+                                       sortie console uniquement          export_pdf(...) via report.py
+                                                                                      │
+                                                                                      ▼
+                                                             report/{ticker}_{style}_{type}_{position}.pdf
+```
+
+---
+
+## Arborescence
+
+| Fichier | Rôle | Sortie |
+|---|---|---|
+| `main.py` | Pipeline principal: input, market data, pricing, Greeks, charts | Affichage console + images en mémoire + appel export |
+| `report.py` | Mise en page PDF (header/footer, KPI, payoff, Greeks) | `report/{ticker}_{style}_{type}_{position}.pdf` |
+| `report/` | Dossier des rapports générés | PDF finaux |
 
 ---
 
 ## Installation
 
-### Requirements
-
+Pré-requis:
 - Python 3.10+
-- Internet connection (required for `yfinance`)
+- Connexion internet (requise pour `yfinance`)
 
-### Install dependencies
+Installer les dépendances:
 
 ```bash
-pip install numpy scipy matplotlib yfinance fpdf2 py_vollib
+pip install -r requirements.txt
 ```
 
-### Run the program
+Lancer:
 
 ```bash
 python main.py
 ```
 
----
+Quickstart:
 
-## Detailed Execution Flow (`main.py`)
-
-### 1) User Input Collection
-
-The script prompts for:
-
-1. `ticker` (e.g., `AAPL`)
-2. `style` (`european`, `american`, `comparison`)
-3. `K` (strike)
-4. `T` (maturity in years)
-5. `option_type` (`call` / `put`)
-6. `position` (`long` / `short`)
-
-Typing `stop` at any prompt cleanly exits the program.
-
----
-
-### 2) Market Data (`get_market_data`)
-
-**Sources:**
-- `yfinance` for the underlying asset
-- `^IRX` for the risk-free rate
-
-**Computed variables:**
-
-- `S`: latest close price of the ticker
-- `sigma`: annualized volatility from log-returns (`std * sqrt(252)`)
-- `r`: latest close of `^IRX`, converted into a rate
-- `q`: `dividendYield` from `stock.info` (0 if unavailable)
-
----
-
-### 3) Pricing
-
-- **European option**: Black-Scholes-Merton (`price_eu_bs`)
-- **American option**: Binomial tree (`price_am_binomial`, `N=200`)
-
-Console output:
-
-- `european` mode: EU price
-- `american` mode: US price
-- `comparison` mode: EU price + US price + spread `US - EU`
-
----
-
-### 4) Greeks
-
-- **European**: Analytical formulas via `py_vollib`  
-  (`delta`, `gamma`, `vega`, `theta`, `rho`)
-
-- **American**: Finite differences around the binomial price (`greeks_am_fd`)
-
-Normalizations applied (US side):
-
-```python
-vega_am = vega_am * 0.01
-rho_am = rho_am * 0.01
-theta_am = theta_am / 365.0
+```bash
+pip install -r requirements.txt
+python main.py
 ```
 
 ---
 
-### 5) Charts (`generate_charts`)
+## Flux d'exécution détaillé (`main.py`)
 
-Generated in memory (PNG via `BytesIO`):
+### 1) Collecte des inputs utilisateur
 
-- Payoff
-- Delta
-- Gamma
-- Vega
-- Theta
-- Rho
+Le script demande:
+1. `ticker` (ex: `AAPL`)
+2. `style` (`europeenne`, `americaine`, `comparaison`)
+3. `K` (strike)
+4. `T` (maturité en années)
+5. `option_type` (`call` / `put`)
+6. `position` (`long` / `short`)
 
----
+`stop` à n'importe quel prompt quitte proprement le programme.
 
-### 6) PDF Export (`export_pdf` in `report.py`)
+### 2) Données marché (`get_market_data`)
 
-Export enabled for:
+Sources:
+- `yfinance` pour le sous-jacent
+- `^IRX` pour le taux sans risque
 
-- `european`
-- `american`
+Calculs:
+- `S`: dernier close du ticker
+- `sigma`: volatilité annualisée à partir des log-returns (`std * sqrt(252)`)
+- `r`: dernier close de `^IRX` converti en taux
+- `q`: `dividendYield` de `stock.info` (0 si absent)
 
-No export in `comparison` mode (current behavior).
+Comment fonctionne `yfinance`:
+- `yf.Ticker("AAPL")` crée un objet ticker
+- `ticker.history(period="1y")` récupère l'historique OHLCV
+- `ticker.info` renvoie des métadonnées (dont `dividendYield` si disponible)
+- les données sont récupérées via les endpoints Yahoo Finance et peuvent varier selon disponibilité marché, horaire, ticker ou région
 
-File naming convention:
+Détail des champs utilisés par le script:
+- `hist["Close"].iloc[-1]` -> spot actuel `S`
+- `log_returns = ln(Close_t / Close_t-1)` -> base du calcul de volatilité
+- `sigma = std(log_returns) * sqrt(252)` -> volatilité annualisée
+- `yf.Ticker("^IRX").history(period="5d")["Close"].iloc[-1] / 100` -> taux sans risque `r`
+- `stock.info.get("dividendYield")` -> rendement dividende brut, puis conversion interne du script
+
+### 3) Pricing
+
+- **Européenne**: Black-Scholes-Merton (`price_eu_bs`)
+- **Américaine**: arbre binomial (`price_am_binomial`, `N=200`)
+
+Sortie console:
+- mode `europeenne`: prix EU
+- mode `americaine`: prix US
+- mode `comparaison`: prix EU + prix US + écart `US - EU`
+
+### 4) Greeks
+
+- **EU**: analytiques via `py_vollib` (`delta`, `gamma`, `vega`, `theta`, `rho`)
+- **US**: différences finies autour du prix binomial (`greeks_am_fd`)
+
+Normalisations appliquées côté US:
+- `vega_am = vega_am * 0.01`
+- `rho_am = rho_am * 0.01`
+- `theta_am = theta_am / 365.0`
+
+### 5) Graphiques (`generate_charts`)
+
+Génère en mémoire (PNG via `BytesIO`):
+- `Payoff`
+- `Delta`
+- `Gamma`
+- `Vega`
+- `Theta`
+- `Rho`
+
+Notes:
+- en mode `comparaison`, les courbes EU et US sont tracées ensemble pour chaque Greek
+- les chart images sont passées à `report.py` sans fichiers intermédiaires
+
+### 6) Export PDF (`export_pdf` dans `report.py`)
+
+Export activé pour:
+- `europeenne`
+- `americaine`
+
+Pas d'export en mode `comparaison` (comportement actuel du code).
+
+Nom de fichier:
 
 ```text
 report/{TICKER}_{style}_{option_type}_{position}.pdf
 ```
 
-Example:
+Exemple:
 
 ```text
-report/AAPL_european_call_long.pdf
+report/AAPL_europeenne_call_long.pdf
 ```
+
+### 7) Exemple d'usage complet (session CLI)
+
+```text
+Ticker (ex: AAPL): AAPL
+Style (europeenne/americaine/comparaison): comparaison
+Strike: 200
+Maturité: 0.5
+Call or Put (call/put): call
+Position (long/short): long
+```
+
+Le script affiche ensuite:
+- les paramètres retenus (`S`, `r`, `sigma`, `q`)
+- le prix européen et américain
+- la différence `US - EU`
+- les Greeks EU et US
+- et génère le PDF si le style est `europeenne` ou `americaine`
 
 ---
 
-## Key Functions
+## Fonctions clés
 
 ### `price_eu_bs(S, K, T, r, q, sigma, option_type)`
 
-Black-Scholes-Merton formula:
+Formule Black-Scholes-Merton:
 
 ```python
 d1 = (ln(S/K) + (r - q + 0.5*sigma^2)*T) / (sigma*sqrt(T))
@@ -158,58 +226,41 @@ call = S*e^(-qT)*N(d1) - K*e^(-rT)*N(d2)
 put  = K*e^(-rT)*N(-d2) - S*e^(-qT)*N(-d1)
 ```
 
----
-
 ### `price_am_binomial(..., N=200)`
 
-Recombining binomial tree:
-
-- Construct payoffs at maturity
-- Backward induction
-- Early exercise at each node:
-
-```python
-max(continuation, exercise)
-```
-
----
+Arbre binomial recombiné:
+- construction des payoffs à maturité
+- backward induction
+- exercice anticipé à chaque noeud (`max(continuation, exercise)`)
 
 ### `greeks_am_fd(...)`
 
-Numerical approximation of sensitivities:
-
-- Delta / Gamma: perturbation on `S`
-- Vega: perturbation on `sigma`
-- Rho: perturbation on `r`
-- Theta: perturbation on `T`
-
----
+Approximation numérique des sensibilités:
+- Delta/Gamma: perturbation sur `S`
+- Vega: perturbation sur `sigma`
+- Rho: perturbation sur `r`
+- Theta: perturbation sur `T`
 
 ### `payoff_net(option_type, position, S_T, K, premium)`
 
-Net payoff (used for payoff chart):
-
-- long: gross payoff − premium
-- short: −gross payoff + premium
+Payoff net long/short (utilisé pour le graphe payoff):
+- long: payoff brut - premium
+- short: -payoff brut + premium
 
 ---
 
-## PDF Report (`report.py`)
+## Rapport PDF (`report.py`)
 
-The generated PDF is structured in two pages:
+Le PDF est structuré en deux pages:
+1. **Indicateurs**:
+   - cartes KPI (`Spot`, `Strike`, `Maturite`, `Volatilité`, `Premium`)
+   - tableau des autres inputs
+2. **Greeks**:
+   - ligne résumé (`Delta`, `Gamma`, `Vega`, `Theta`, `Rho`)
+   - grille de graphiques des Greeks
 
-### Page 1 – Indicators
+Éléments visuels:
+- Header/Footer personnalisés
+- Date de génération
+- Nom du rapport + pagination
 
-- KPI cards (`Spot`, `Strike`, `Maturity`, `Volatility`, `Premium`)
-- Table of additional inputs
-
-### Page 2 – Greeks
-
-- Summary row (`Delta`, `Gamma`, `Vega`, `Theta`, `Rho`)
-- Grid of Greeks charts
-
-### Visual Elements
-
-- Custom header and footer
-- Generation date
-- Report title and pagination
